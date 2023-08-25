@@ -1,0 +1,21 @@
+{
+  "name": "atomicdetection-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KateScarlett/AtomicDetection-API/issues"
+  },
+  "homepage": "https://github.com/KateScarlett/AtomicDetection-API#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
