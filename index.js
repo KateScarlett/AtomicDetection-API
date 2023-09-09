@@ -4,6 +4,10 @@ import bcrypt from "bcrypt";
 import cors from "cors";
 import knex from "knex";
 import 'dotenv/config';
+import handleRegister from "./controllers/register.js";
+import handleSignIn from "./controllers/signin.js";
+import handleImage from "./controllers/image.js";
+import handleApiCall from "./controllers/clarifai.js";
 
 const db = knex({
     client: 'pg',
@@ -20,9 +24,6 @@ const db = knex({
 db.select('name').from('users').then(data => {
     log(data);
 });
-
-const saltRounds = 10;
-const salt = bcrypt.genSaltSync(saltRounds);
 
 const app = express();
 const options = {
@@ -41,75 +42,20 @@ app.get('/', (req, res) => {
     ;
 });
 
-app.post('/signin', (req, res) => {
-    db.select('email', 'hash').from('login')
-        .where('email', '=', req.body.email)
-        .then(data => {
-            const isValid = bcrypt.compareSync(req.body.password, data[0].hash);
-            if (isValid) {
-                db.select('*').from('users')
-                    .where('email', '=', req.body.email)
-                    .then(user => {
-                        res.json(user[0]);
-                    })
-                    .catch(err => res.status(400).json('Unable to get user'))
-            } else {
-                res.status(400).json('Wrong credentials');
-            }
-        }).catch(err => res.status(400).json('Wrong Credentials'));
-})
-
+// Advanced passing of req,res
+app.post('/signin', handleSignIn(db,bcrypt));
 app.post('/register', (req, res) => {
-    const {email, name, password} = req.body;
-
-    const hash = bcrypt.hashSync(password, salt);
-    db.transaction(trx => {
-        trx.insert({
-            hash: hash,
-            email: email
-        })
-            .into('login')
-            .returning('email')
-            .then(loginEmail => {
-                trx('users')
-                    .returning('*')
-                    .insert({
-                        email: loginEmail[0].email,
-                        name: name,
-                        joined: new Date()
-                    }).then(user => {
-                    res.json(user[0]);
-                })
-            })
-            .then(trx.commit)
-            .catch(trx.rollback)
-    })
-        .catch(err => res.status(400).json('Unable to register'))
+    handleRegister(req,res,db,bcrypt);
+});
+app.get('/profile/:id', (req,res,next) => {
+    handleImage(req,res,next,db);
+});
+app.put('/image', (req,res) => {
+    handleImage(req,res,db);
 });
 
-app.get('/profile/:id', (req, res, next) => {
-    const {id} = req.params;
-    db.select('*')
-        .from('users')
-        .where({id})
-        .then(user => {
-            if (user.length) {
-                res.json(user[0]);
-            } else {
-                res.status(400).json('Unable to retrieve profile');
-            }
-        }).catch(err => res.status(400).json('error Unable to retrieve profile'));
-});
-
-app.put('/image', (req, res) => {
-    const {id} = req.body;
-    db('users').where({id})
-        .increment('entries', 1)
-        .returning('entries')
-        .then(entries => {
-            res.json(entries[0].entries);
-        })
-        .catch(err => res.status(400).json('Unable to get entries'));
+app.post('/api', (req,res) => {
+    handleApiCall(req,res);
 });
 
 app.listen(3000, () => {
