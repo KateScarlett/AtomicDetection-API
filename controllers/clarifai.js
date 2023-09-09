@@ -1,49 +1,36 @@
-const PAT = process.env.CLARIFAI_PAT;
-const USER_ID = process.env.CLARIFAI_USER_ID;
-const APP_ID = process.env.CLARIFAI_APP_ID;
-const MODEL_ID = process.env.CLARIFAI_MODEL_ID;
-const MODEL_VERSION_ID = process.env.CLARIFAI_MODEL_VERSION_ID;
+import {ClarifaiStub, grpc} from "clarifai-nodejs-grpc";
+const stub = ClarifaiStub.grpc();
 
-const handleApiCall = async (req,res) => {
+const PAT = process.env.CLARIFAI_PAT;
+const MODEL_ID = process.env.CLARIFAI_MODEL_ID;
+const metadata = new grpc.Metadata();
+metadata.set("authorization", "Key " + PAT);
+
+const handleApiCall = (req,res) => {
 
     const {url} = req.body;
 
-    const raw = JSON.stringify({
-        "user_app_id": {
-            "user_id": USER_ID,
-            "app_id": APP_ID
+    stub.PostModelOutputs(
+        {
+            // This is the model ID of a publicly available General model. You may use any other public or custom model ID.
+            model_id: MODEL_ID,
+            inputs: [{data: {image: {url: url}}}]
         },
-        "inputs": [
-            {
-                "data": {
-                    "image": {
-                        "url": url
-                    }
-                }
+        metadata,
+        (err, response) => {
+            if (err) {
+                console.log("Error: " + err);
+                return;
             }
-        ]
-    });
 
-    const requestOptions = {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Key ' + PAT
-        },
-        body: raw
-    };
+            if (response.status.code !== 10000) {
+                console.log("Received failed status: " + response.status.description + "\n" + response.status.details);
+                return;
+            }
 
-    try {
-        const response = await fetch("https://api.clarifai.com/v2/models/" + MODEL_ID + "/versions/" + MODEL_VERSION_ID + "/outputs", requestOptions);
-        const data = await response.json();
-        if (data) {
-            res.json(data);
-        } else {
-            res.status(400).json('Unable to retrieve api data');
+            res.json(response);
         }
-    }catch (e) {
-        res.status(400).json('Unable to retrieve api data');
-    }
+    );
 }
 
 export default handleApiCall;
